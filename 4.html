@@ -5,16 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Менеджер паролей</title>
   <style>
-    /* --- Базовые стили из Pixso --- */
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', Arial, sans-serif; }
     body { width: 100%; height: 100vh; background-color: rgba(220, 219, 219, 1); overflow: hidden; }
     
     .screen { display: none; width: 100%; height: 100%; }
     .screen.active { display: flex; justify-content: center; align-items: center; }
 
-    /* --- Стили для Экранов Входа и Регистрации --- */
+    /* --- Экраны авторизации --- */
     .auth-container {
-      background: white; padding: 40px; border-radius: 15px; width: 350px;
+      background: white; padding: 40px; border-radius: 15px; width: 380px;
       box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center;
     }
     .auth-container h2 { margin-bottom: 20px; color: #3d3d3d; }
@@ -31,8 +30,9 @@
     .auth-container .link { margin-top: 15px; font-size: 14px; color: #666; }
     .auth-container .link a { color: #4a90e2; text-decoration: none; font-weight: bold; }
     .error-msg { color: red; font-size: 14px; margin-bottom: 10px; min-height: 20px; }
+    .hint { font-size: 12px; color: #888; margin-bottom: 15px; text-align: left; }
 
-    /* --- Стили для Главного экрана (Менеджер) --- */
+    /* --- Главный экран --- */
     #screen-manager { display: none; }
     #screen-manager.active { display: block; }
 
@@ -46,7 +46,8 @@
     }
     .top-bar {
       position: absolute; top: 58px; left: 340px; width: calc(100% - 370px); height: 60px;
-      background-color: white; border-radius: 0px 10px 0px 0px; display: flex; align-items: center; padding: 0 20px;
+      background-color: white; border-radius: 0px 10px 0px 0px;
+      display: flex; align-items: center; padding: 0 20px; gap: 10px;
     }
     .main-content {
       position: absolute; top: 132px; left: 340px; width: calc(100% - 370px); height: calc(100% - 144px);
@@ -58,93 +59,132 @@
     .user-name { font-size: 18px; color: #161212; font-weight: 500; }
     
     .btn {
-      padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px;
+      padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+      font-size: 14px; transition: all 0.2s;
     }
     .btn-primary { background-color: #4a90e2; color: white; }
     .btn-primary:hover { background-color: #357abd; }
     .btn-secondary { background-color: rgba(190, 190, 190, 1); color: #3d3d3d; }
+    .btn-secondary:hover { background-color: #a8a8a8; }
     .btn-danger { background-color: #e74c3c; color: white; padding: 4px 8px; font-size: 12px;}
+    .btn-success { background-color: #27ae60; color: white; }
+    .btn-success:hover { background-color: #1e8449; }
+    .btn-small { padding: 5px 10px; font-size: 12px; margin-left: 5px; }
 
     .spacer { flex-grow: 1; }
 
     /* Таблица */
     .table-header {
-      display: flex; padding: 18px 23px; border-bottom: 2px solid #eee; font-size: 18px; color: #3d3d3d; font-weight: 600;
+      display: flex; padding: 18px 23px; border-bottom: 2px solid #eee;
+      font-size: 18px; color: #3d3d3d; font-weight: 600;
       position: sticky; top: 0; background: white; z-index: 10;
     }
     .col { flex: 1; }
     .col-service { flex: 1.5; }
-    .col-actions { flex: 0.5; text-align: right; }
+    .col-actions { flex: 0.8; text-align: right; display: flex; justify-content: flex-end; gap: 5px; }
 
     .table-row {
-      display: flex; padding: 15px 23px; border-bottom: 1px solid #f0f0f0; font-size: 16px; color: #333; align-items: center;
+      display: flex; padding: 15px 23px; border-bottom: 1px solid #f0f0f0;
+      font-size: 16px; color: #333; align-items: center;
     }
     .table-row:hover { background-color: #f9f9f9; }
     .empty-state { text-align: center; padding: 50px; color: #999; font-size: 18px; }
+    .password-cell { font-family: monospace; letter-spacing: 1px; }
+    .hidden-password { color: #aaa; font-style: italic; }
 
-    /* Модальное окно */
+    /* Модальные окна */
     .modal-overlay {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100;
     }
     .modal-overlay.active { display: flex; }
     .modal {
-      background: white; padding: 30px; border-radius: 12px; width: 400px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      background: white; padding: 30px; border-radius: 12px; width: 450px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto;
     }
     .modal h3 { margin-bottom: 20px; color: #333; }
+    .modal label { display: block; margin-bottom: 5px; font-size: 14px; color: #555; font-weight: 500; }
     .modal input, .modal textarea {
       width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd;
       border-radius: 6px; font-size: 14px; outline: none; font-family: inherit;
     }
     .modal textarea { height: 80px; resize: vertical; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+
+    /* Генератор пароля */
+    .generator-section {
+      background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 15px;
+    }
+    .generator-section h4 { margin-bottom: 10px; font-size: 14px; color: #333; }
+    .gen-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .gen-row input[type="range"] { flex-grow: 1; }
+    .gen-row input[type="number"] { width: 60px; margin: 0; }
+    .gen-row label { margin: 0; display: flex; align-items: center; gap: 5px; font-size: 13px; }
+    .gen-row input[type="checkbox"] { width: auto; margin: 0; }
+    .generated-preview {
+      font-family: monospace; font-size: 16px; padding: 10px; background: white;
+      border: 1px solid #ddd; border-radius: 6px; word-break: break-all;
+      min-height: 40px; display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* Уведомления */
+    .toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: #333; color: white; padding: 12px 24px; border-radius: 8px;
+      opacity: 0; transition: opacity 0.3s; z-index: 1000; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #27ae60; }
+    .toast.error { background: #e74c3c; }
   </style>
 </head>
 <body>
 
-  <!-- ЭКРАН 1: ВХОД -->
+  <!-- ЭКРАН ВХОДА -->
   <div id="screen-login" class="screen active">
     <div class="auth-container">
-      <h2>Вход в менеджер</h2>
+      <h2>🔐 Вход в менеджер</h2>
       <div class="error-msg" id="login-error"></div>
       <input type="text" id="login-username" placeholder="Логин">
-      <input type="password" id="login-password" placeholder="Пароль">
+      <input type="password" id="login-password" placeholder="Мастер-пароль">
+      <div class="hint">⚠️ Мастер-пароль используется для расшифровки ваших данных. Без него восстановить пароли невозможно.</div>
       <button onclick="login()">Войти</button>
       <div class="link">Нет аккаунта? <a href="#" onclick="showScreen('screen-register')">Зарегистрироваться</a></div>
     </div>
   </div>
 
-  <!-- ЭКРАН 2: РЕГИСТРАЦИЯ -->
+  <!-- ЭКРАН РЕГИСТРАЦИИ -->
   <div id="screen-register" class="screen">
     <div class="auth-container">
-      <h2>Регистрация</h2>
+      <h2>📝 Регистрация</h2>
       <div class="error-msg" id="reg-error"></div>
       <input type="text" id="reg-username" placeholder="Придумайте логин">
-      <input type="password" id="reg-password" placeholder="Придумайте пароль">
-      <input type="password" id="reg-password-confirm" placeholder="Повторите пароль">
+      <input type="password" id="reg-password" placeholder="Мастер-пароль (мин. 6 символов)">
+      <input type="password" id="reg-password-confirm" placeholder="Повторите мастер-пароль">
+      <div class="hint">⚠️ Запомните мастер-пароль! Он используется для шифрования всех ваших данных. Восстановить его невозможно.</div>
       <button onclick="register()">Создать аккаунт</button>
       <div class="link">Уже есть аккаунт? <a href="#" onclick="showScreen('screen-login')">Войти</a></div>
     </div>
   </div>
 
-  <!-- ЭКРАН 3: ГЛАВНЫЙ (МЕНЕДЖЕР ПАРОЛЕЙ) -->
+  <!-- ГЛАВНЫЙ ЭКРАН -->
   <div id="screen-manager" class="screen">
     <div class="Pixso-frame-2_14">
-      <!-- Боковая панель -->
       <div class="sidebar"></div>
       
-      <!-- Верхняя панель -->
       <div class="top-bar">
         <div class="user-info">
           <div class="user-avatar"></div>
           <span class="user-name" id="current-user-display">Пользователь</span>
         </div>
         <div class="spacer"></div>
+        <button class="btn btn-success" onclick="exportEncrypted()">📤 Экспорт (зашифр.)</button>
+        <button class="btn btn-secondary" onclick="exportPlain()">📄 Экспорт (JSON)</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">📥 Импорт</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importFile(event)">
         <button class="btn btn-secondary" onclick="logout()">Выйти</button>
       </div>
 
-      <!-- Основной контент -->
       <div class="main-content">
         <div class="table-header">
           <div class="col col-service">Сервис</div>
@@ -153,26 +193,53 @@
           <div class="col">Заметка</div>
           <div class="col col-actions">Действия</div>
         </div>
-        <div id="passwords-list">
-          <!-- Сюда JS будет добавлять строки -->
-        </div>
+        <div id="passwords-list"></div>
       </div>
 
-      <!-- Кнопка добавления (плавающая) -->
       <button class="btn btn-primary" style="position: absolute; bottom: 30px; right: 50px; padding: 12px 24px; font-size: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);" onclick="openModal()">
         + Добавить пароль
       </button>
     </div>
   </div>
 
-  <!-- МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ -->
+  <!-- МОДАЛКА ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ -->
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal">
-      <h3>Новая запись</h3>
-      <input type="text" id="input-service" placeholder="Сервис (например, VK, Google)">
-      <input type="text" id="input-login" placeholder="Логин или Email">
-      <input type="text" id="input-password" placeholder="Пароль">
-      <textarea id="input-note" placeholder="Заметка (необязательно)"></textarea>
+      <h3 id="modal-title">Новая запись</h3>
+      <label>Сервис</label>
+      <input type="text" id="input-service" placeholder="Например, VK, Google">
+      <label>Логин</label>
+      <input type="text" id="input-login" placeholder="Email или логин">
+      
+      <label>Пароль</label>
+      <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+        <input type="text" id="input-password" placeholder="Пароль" style="margin: 0; flex-grow: 1;">
+        <button class="btn btn-secondary" onclick="copyToClipboard(document.getElementById('input-password').value)">📋</button>
+      </div>
+
+      <!-- Генератор пароля -->
+      <div class="generator-section">
+        <h4>🎲 Генератор пароля</h4>
+        <div class="gen-row">
+          <label>Длина:</label>
+          <input type="range" id="gen-length" min="6" max="40" value="16" oninput="updateLengthDisplay()">
+          <input type="number" id="gen-length-num" min="6" max="40" value="16" onchange="syncLengthFromNum()">
+        </div>
+        <div class="gen-row">
+          <label><input type="checkbox" id="gen-upper" checked> A-Z</label>
+          <label><input type="checkbox" id="gen-lower" checked> a-z</label>
+          <label><input type="checkbox" id="gen-digits" checked> 0-9</label>
+          <label><input type="checkbox" id="gen-symbols" checked> !@#$</label>
+        </div>
+        <div class="generated-preview">
+          <span id="gen-preview">Нажмите «Сгенерировать»</span>
+          <button class="btn btn-small btn-primary" onclick="generateAndInsert()">Сгенерировать</button>
+        </div>
+      </div>
+
+      <label>Заметка (необязательно)</label>
+      <textarea id="input-note" placeholder="Дополнительная информация"></textarea>
+      
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
         <button class="btn btn-primary" onclick="savePassword()">Сохранить</button>
@@ -180,42 +247,127 @@
     </div>
   </div>
 
+  <!-- МОДАЛКА ИМПОРТА (для зашифрованного файла) -->
+  <div class="modal-overlay" id="import-modal-overlay">
+    <div class="modal">
+      <h3>🔓 Импорт зашифрованного бэкапа</h3>
+      <p style="margin-bottom: 15px; color: #555;">Введите мастер-пароль от этого бэкапа, чтобы расшифровать данные:</p>
+      <input type="password" id="import-master-password" placeholder="Мастер-пароль">
+      <div class="error-msg" id="import-error"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeImportModal()">Отмена</button>
+        <button class="btn btn-primary" onclick="confirmImport()">Разблокировать и импортировать</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
   <script>
     // ==========================================
-    // ЛОКАЛЬНАЯ БАЗА ДАННЫХ (JSON в localStorage)
+    // КРИПТОГРАФИЧЕСКИЙ МОДУЛЬ (AES-GCM + PBKDF2)
+    // ==========================================
+    const Crypto = {
+      // Деривация ключа из мастер-пароля через PBKDF2
+      async deriveKey(password, salt) {
+        const encoder = new TextEncoder();
+        const keyMaterial = await crypto.subtle.importKey(
+          'raw', encoder.encode(password), 'PBKDF2', false, ['deriveKey']
+        );
+        return crypto.subtle.deriveKey(
+          { name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' },
+          keyMaterial,
+          { name: 'AES-GCM', length: 256 },
+          false,
+          ['encrypt', 'decrypt']
+        );
+      },
+
+      // Шифрование данных
+      async encrypt(data, password) {
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const key = await this.deriveKey(password, salt);
+        const encoder = new TextEncoder();
+        const encrypted = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv: iv },
+          key,
+          encoder.encode(JSON.stringify(data))
+        );
+        return {
+          salt: Array.from(salt),
+          iv: Array.from(iv),
+          data: Array.from(new Uint8Array(encrypted))
+        };
+      },
+
+      // Расшифровка данных
+      async decrypt(encObj, password) {
+        try {
+          const salt = new Uint8Array(encObj.salt);
+          const iv = new Uint8Array(encObj.iv);
+          const data = new Uint8Array(encObj.data);
+          const key = await this.deriveKey(password, salt);
+          const decrypted = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: iv }, key, data
+          );
+          return JSON.parse(new TextDecoder().decode(decrypted));
+        } catch (e) {
+          throw new Error('Неверный мастер-пароль или повреждённые данные');
+        }
+      }
+    };
+
+    // ==========================================
+    // ЛОКАЛЬНАЯ БД (JSON в localStorage)
     // ==========================================
     const DB = {
-      // Получить всех пользователей
       getUsers: () => JSON.parse(localStorage.getItem('pm_users') || '[]'),
-      // Сохранить массив пользователей
       saveUsers: (users) => localStorage.setItem('pm_users', JSON.stringify(users)),
-      // Получить текущего залогиненного юзера
       getCurrentUser: () => localStorage.getItem('pm_currentUser'),
       setCurrentUser: (username) => localStorage.setItem('pm_currentUser', username),
       clearCurrentUser: () => localStorage.removeItem('pm_currentUser'),
       
-      // Получить пароли конкретного юзера
-      getPasswords: (username) => JSON.parse(localStorage.getItem('pm_pass_' + username) || '[]'),
-      // Сохранить пароли конкретного юзера
-      savePasswords: (username, passwords) => localStorage.setItem('pm_pass_' + username, JSON.stringify(passwords))
+      // Получить ЗАШИФРОВАННЫЕ пароли пользователя
+      getEncryptedPasswords: (username) => {
+        const raw = localStorage.getItem('pm_pass_' + username);
+        return raw ? JSON.parse(raw) : null;
+      },
+      // Сохранить ЗАШИФРОВАННЫЕ пароли
+      saveEncryptedPasswords: (username, encData) => {
+        localStorage.setItem('pm_pass_' + username, JSON.stringify(encData));
+      }
     };
 
+    // В памяти храним расшифрованные пароли текущей сессии
+    let sessionPasswords = [];
+    let sessionMasterPassword = null;
+    let editingIndex = -1;
+
     // ==========================================
-    // НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ
+    // НАВИГАЦИЯ
     // ==========================================
     function showScreen(screenId) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(screenId).classList.add('active');
-      
-      // Очистка ошибок при переключении
       document.getElementById('login-error').innerText = '';
       document.getElementById('reg-error').innerText = '';
     }
 
     // ==========================================
-    // ЛОГИКА РЕГИСТРАЦИИ И ВХОДА
+    // УВЕДОМЛЕНИЯ
     // ==========================================
-    function register() {
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast show ' + type;
+      setTimeout(() => toast.className = 'toast', 2500);
+    }
+
+    // ==========================================
+    // РЕГИСТРАЦИЯ И ВХОД
+    // ==========================================
+    async function register() {
       const username = document.getElementById('reg-username').value.trim();
       const password = document.getElementById('reg-password').value;
       const confirm = document.getElementById('reg-password-confirm').value;
@@ -224,8 +376,11 @@
       if (!username || !password) {
         errorEl.innerText = 'Заполните все поля!'; return;
       }
+      if (password.length < 6) {
+        errorEl.innerText = 'Мастер-пароль должен быть не короче 6 символов!'; return;
+      }
       if (password !== confirm) {
-        errorEl.innerText = 'Пароли не совпадают!'; return;
+        errorEl.innerText = 'Мастер-пароли не совпадают!'; return;
       }
 
       let users = DB.getUsers();
@@ -233,137 +388,388 @@
         errorEl.innerText = 'Такой логин уже занят!'; return;
       }
 
-      // Добавляем нового юзера в JSON БД
-      users.push({ username, password });
+      // Генерируем соль для проверки мастер-пароля при входе
+      const verifySalt = crypto.getRandomValues(new Uint8Array(16));
+      const verifyKey = await Crypto.deriveKey(password, verifySalt);
+      // Шифруем "метку" чтобы потом проверить правильность пароля
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const marker = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv }, verifyKey,
+        new TextEncoder().encode('PASSWORD_OK')
+      );
+
+      users.push({
+        username,
+        verifySalt: Array.from(verifySalt),
+        verifyIv: Array.from(iv),
+        verifyMarker: Array.from(new Uint8Array(marker))
+      });
       DB.saveUsers(users);
       
-      alert('Регистрация успешна! Теперь войдите в аккаунт.');
+      // Создаём пустой зашифрованный сейф
+      const emptyEnc = await Crypto.encrypt([], password);
+      DB.saveEncryptedPasswords(username, emptyEnc);
+      
+      showToast('Регистрация успешна! Теперь войдите.');
       showScreen('screen-login');
     }
 
-    function login() {
+    async function login() {
       const username = document.getElementById('login-username').value.trim();
       const password = document.getElementById('login-password').value;
       const errorEl = document.getElementById('login-error');
 
       const users = DB.getUsers();
-      const user = users.find(u => u.username === username && u.password === password);
+      const user = users.find(u => u.username === username);
 
       if (!user) {
-        errorEl.innerText = 'Неверный логин или пароль!'; return;
+        errorEl.innerText = 'Пользователь не найден!'; return;
       }
 
+      // Проверяем мастер-пароль через расшифровку маркера
+      try {
+        const salt = new Uint8Array(user.verifySalt);
+        const iv = new Uint8Array(user.verifyIv);
+        const marker = new Uint8Array(user.verifyMarker);
+        const key = await Crypto.deriveKey(password, salt);
+        const decrypted = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv }, key, marker
+        );
+        const text = new TextDecoder().decode(decrypted);
+        if (text !== 'PASSWORD_OK') throw new Error();
+      } catch (e) {
+        errorEl.innerText = 'Неверный мастер-пароль!'; return;
+      }
+
+      // Расшифровываем пароли в память сессии
+      try {
+        const encData = DB.getEncryptedPasswords(username);
+        if (encData) {
+          sessionPasswords = await Crypto.decrypt(encData, password);
+        } else {
+          sessionPasswords = [];
+        }
+      } catch (e) {
+        errorEl.innerText = 'Ошибка расшифровки данных!'; return;
+      }
+
+      sessionMasterPassword = password;
       DB.setCurrentUser(username);
       loadManager();
     }
 
     function logout() {
       DB.clearCurrentUser();
+      sessionPasswords = [];
+      sessionMasterPassword = null;
       showScreen('screen-login');
-      // Очищаем поля
       document.getElementById('login-username').value = '';
       document.getElementById('login-password').value = '';
     }
 
     // ==========================================
-    // ЛОГИКА МЕНЕДЖЕРА ПАРОЛЕЙ
+    // ПЕРЕШИФРОВАНИЕ И СОХРАНЕНИЕ
+    // ==========================================
+    async function saveToStorage() {
+      const currentUser = DB.getCurrentUser();
+      const encrypted = await Crypto.encrypt(sessionPasswords, sessionMasterPassword);
+      DB.saveEncryptedPasswords(currentUser, encrypted);
+    }
+
+    // ==========================================
+    // МЕНЕДЖЕР ПАРОЛЕЙ
     // ==========================================
     function loadManager() {
       const currentUser = DB.getCurrentUser();
-      if (!currentUser) {
-        showScreen('screen-login');
-        return;
-      }
-
+      if (!currentUser) { showScreen('screen-login'); return; }
       document.getElementById('current-user-display').innerText = currentUser;
       showScreen('screen-manager');
       renderPasswords();
     }
 
     function renderPasswords() {
-      const currentUser = DB.getCurrentUser();
-      const passwords = DB.getPasswords(currentUser);
       const listEl = document.getElementById('passwords-list');
-      
       listEl.innerHTML = '';
 
-      if (passwords.length === 0) {
+      if (sessionPasswords.length === 0) {
         listEl.innerHTML = '<div class="empty-state">Пока нет сохраненных паролей. Нажмите «+ Добавить пароль»</div>';
         return;
       }
 
-      passwords.forEach((item, index) => {
+      sessionPasswords.forEach((item, index) => {
         const row = document.createElement('div');
         row.className = 'table-row';
         row.innerHTML = `
-          <div class="col col-service">${item.service}</div>
-          <div class="col">${item.login}</div>
-          <div class="col">${item.password}</div>
-          <div class="col">${item.note || '-'}</div>
+          <div class="col col-service">${escapeHtml(item.service)}</div>
+          <div class="col">${escapeHtml(item.login)}</div>
+          <div class="col password-cell">
+            <span class="hidden-password" id="pw-${index}">••••••••</span>
+            <button class="btn btn-small btn-secondary" onclick="togglePassword(${index})">👁</button>
+            <button class="btn btn-small btn-secondary" onclick="copyToClipboard('${escapeJs(item.password)}')">📋</button>
+          </div>
+          <div class="col">${escapeHtml(item.note) || '-'}</div>
           <div class="col col-actions">
-            <button class="btn btn-danger" onclick="deletePassword(${index})">Удалить</button>
+            <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editPassword(${index})">✏️</button>
+            <button class="btn btn-danger" onclick="deletePassword(${index})">🗑</button>
           </div>
         `;
         listEl.appendChild(row);
       });
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function escapeJs(str) {
+      return String(str).replace(/['"\\]/g, c => '\\' + c);
+    }
+
+    function togglePassword(index) {
+      const el = document.getElementById('pw-' + index);
+      if (el.classList.contains('hidden-password')) {
+        el.textContent = sessionPasswords[index].password;
+        el.classList.remove('hidden-password');
+      } else {
+        el.textContent = '••••••••';
+        el.classList.add('hidden-password');
+      }
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Скопировано в буфер обмена!');
+      }).catch(() => {
+        showToast('Не удалось скопировать', 'error');
+      });
+    }
+
+    // ==========================================
+    // МОДАЛКА ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ
+    // ==========================================
     function openModal() {
+      editingIndex = -1;
+      document.getElementById('modal-title').textContent = 'Новая запись';
+      document.getElementById('input-service').value = '';
+      document.getElementById('input-login').value = '';
+      document.getElementById('input-password').value = '';
+      document.getElementById('input-note').value = '';
+      document.getElementById('gen-preview').textContent = 'Нажмите «Сгенерировать»';
+      document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function editPassword(index) {
+      editingIndex = index;
+      const item = sessionPasswords[index];
+      document.getElementById('modal-title').textContent = 'Редактирование записи';
+      document.getElementById('input-service').value = item.service;
+      document.getElementById('input-login').value = item.login;
+      document.getElementById('input-password').value = item.password;
+      document.getElementById('input-note').value = item.note || '';
       document.getElementById('modal-overlay').classList.add('active');
     }
 
     function closeModal() {
       document.getElementById('modal-overlay').classList.remove('active');
-      // Очищаем поля
-      document.getElementById('input-service').value = '';
-      document.getElementById('input-login').value = '';
-      document.getElementById('input-password').value = '';
-      document.getElementById('input-note').value = '';
     }
 
-    function savePassword() {
+    async function savePassword() {
       const service = document.getElementById('input-service').value.trim();
       const login = document.getElementById('input-login').value.trim();
       const password = document.getElementById('input-password').value.trim();
       const note = document.getElementById('input-note').value.trim();
 
       if (!service || !login || !password) {
-        alert('Заполните обязательные поля (Сервис, Логин, Пароль)!');
-        return;
+        showToast('Заполните обязательные поля!', 'error'); return;
       }
 
-      const currentUser = DB.getCurrentUser();
-      let passwords = DB.getPasswords(currentUser);
-      
-      // Добавляем новую запись в JSON массив
-      passwords.push({ service, login, password, note });
-      
-      // Сохраняем обновленный JSON обратно в localStorage
-      DB.savePasswords(currentUser, passwords);
-      
+      const newItem = { service, login, password, note };
+
+      if (editingIndex === -1) {
+        sessionPasswords.push(newItem);
+      } else {
+        sessionPasswords[editingIndex] = newItem;
+      }
+
+      await saveToStorage();
       closeModal();
       renderPasswords();
+      showToast(editingIndex === -1 ? 'Запись добавлена!' : 'Запись обновлена!');
     }
 
-    function deletePassword(index) {
+    async function deletePassword(index) {
       if (!confirm('Удалить эту запись?')) return;
-      
-      const currentUser = DB.getCurrentUser();
-      let passwords = DB.getPasswords(currentUser);
-      
-      passwords.splice(index, 1);
-      DB.savePasswords(currentUser, passwords);
-      
+      sessionPasswords.splice(index, 1);
+      await saveToStorage();
       renderPasswords();
+      showToast('Запись удалена');
     }
 
     // ==========================================
-    // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
+    // ГЕНЕРАТОР ПАРОЛЕЙ
+    // ==========================================
+    function updateLengthDisplay() {
+      document.getElementById('gen-length-num').value = document.getElementById('gen-length').value;
+    }
+    function syncLengthFromNum() {
+      document.getElementById('gen-length').value = document.getElementById('gen-length-num').value;
+    }
+
+    function generatePassword() {
+      const length = parseInt(document.getElementById('gen-length').value);
+      const useUpper = document.getElementById('gen-upper').checked;
+      const useLower = document.getElementById('gen-lower').checked;
+      const useDigits = document.getElementById('gen-digits').checked;
+      const useSymbols = document.getElementById('gen-symbols').checked;
+
+      let chars = '';
+      if (useUpper) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      if (useLower) chars += 'abcdefghijklmnopqrstuvwxyz';
+      if (useDigits) chars += '0123456789';
+      if (useSymbols) chars += '!@#$%^&*()-_=+[]{};:,.<>?';
+
+      if (!chars) {
+        showToast('Выберите хотя бы один тип символов!', 'error');
+        return null;
+      }
+
+      // Криптостойкая генерация через WebCrypto
+      const array = new Uint32Array(length);
+      crypto.getRandomValues(array);
+      let password = '';
+      for (let i = 0; i < length; i++) {
+        password += chars[array[i] % chars.length];
+      }
+      return password;
+    }
+
+    function generateAndInsert() {
+      const pwd = generatePassword();
+      if (pwd) {
+        document.getElementById('input-password').value = pwd;
+        document.getElementById('gen-preview').textContent = pwd;
+      }
+    }
+
+    // ==========================================
+    // ЭКСПОРТ / ИМПОРТ
+    // ==========================================
+    function downloadFile(filename, content, type = 'application/json') {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Экспорт ЗАШИФРОВАННОГО бэкапа (для безопасного хранения)
+    function exportEncrypted() {
+      const currentUser = DB.getCurrentUser();
+      const encData = DB.getEncryptedPasswords(currentUser);
+      const backup = {
+        format: 'password-manager-encrypted-v1',
+        username: currentUser,
+        createdAt: new Date().toISOString(),
+        data: encData
+      };
+      downloadFile(`passwords-encrypted-${currentUser}-${Date.now()}.json`, JSON.stringify(backup, null, 2));
+      showToast('Зашифрованный бэкап сохранён!');
+    }
+
+    // Экспорт РАСШИФРОВАННОГО JSON (для миграции в другие менеджеры)
+    function exportPlain() {
+      if (!confirm('⚠️ Внимание!\n\nВы собираетесь экспортировать пароли в ОТКРЫТОМ виде (без шифрования).\n\nФайл будет содержать все ваши пароли в виде обычного текста. Храните его в безопасном месте!\n\nПродолжить?')) return;
+      
+      const backup = {
+        format: 'password-manager-plain-v1',
+        username: DB.getCurrentUser(),
+        createdAt: new Date().toISOString(),
+        passwords: sessionPasswords
+      };
+      downloadFile(`passwords-plain-${DB.getCurrentUser()}-${Date.now()}.json`, JSON.stringify(backup, null, 2));
+      showToast('Расшифрованный JSON сохранён!');
+    }
+
+    // Импорт
+    let pendingImportData = null;
+    function importFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          
+          if (data.format === 'password-manager-encrypted-v1') {
+            // Зашифрованный бэкап - нужен мастер-пароль
+            pendingImportData = data;
+            document.getElementById('import-error').textContent = '';
+            document.getElementById('import-master-password').value = '';
+            document.getElementById('import-modal-overlay').classList.add('active');
+          } else if (data.format === 'password-manager-plain-v1') {
+            // Расшифрованный JSON - импортируем сразу
+            if (!confirm(`Импортировать ${data.passwords.length} записей?\n\nТекущие записи будут сохранены, новые добавятся к ним.`)) {
+              pendingImportData = null; return;
+            }
+            sessionPasswords = sessionPasswords.concat(data.passwords);
+            saveToStorage().then(() => {
+              renderPasswords();
+              showToast(`Импортировано ${data.passwords.length} записей!`);
+            });
+            pendingImportData = null;
+          } else {
+            showToast('Неизвестный формат файла!', 'error');
+          }
+        } catch (err) {
+          showToast('Ошибка чтения файла: ' + err.message, 'error');
+        }
+        event.target.value = ''; // сброс для повторного импорта
+      };
+      reader.readAsText(file);
+    }
+
+    async function confirmImport() {
+      const password = document.getElementById('import-master-password').value;
+      const errorEl = document.getElementById('import-error');
+
+      if (!password) {
+        errorEl.textContent = 'Введите мастер-пароль!'; return;
+      }
+
+      try {
+        const decrypted = await Crypto.decrypt(pendingImportData.data, password);
+        if (!Array.isArray(decrypted)) throw new Error('Неверный формат данных');
+        
+        if (!confirm(`Импортировать ${decrypted.length} записей?\n\nТекущие записи будут сохранены, новые добавятся к ним.`)) {
+          closeImportModal(); return;
+        }
+        
+        sessionPasswords = sessionPasswords.concat(decrypted);
+        await saveToStorage();
+        renderPasswords();
+        closeImportModal();
+        showToast(`Импортировано ${decrypted.length} записей!`);
+      } catch (e) {
+        errorEl.textContent = 'Ошибка: ' + e.message;
+      }
+    }
+
+    function closeImportModal() {
+      document.getElementById('import-modal-overlay').classList.remove('active');
+      pendingImportData = null;
+    }
+
+    // ==========================================
+    // ИНИЦИАЛИЗАЦИЯ
     // ==========================================
     window.onload = function() {
-      // Если юзер уже залогинен, сразу открываем менеджер
       if (DB.getCurrentUser()) {
-        loadManager();
+        // При перезагрузке нужно заново ввести мастер-пароль для расшифровки
+        DB.clearCurrentUser();
+        showScreen('screen-login');
       } else {
         showScreen('screen-login');
       }
