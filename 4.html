@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Менеджер паролей</title>
+  <style>
+    /* --- Базовые стили из Pixso --- */
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', Arial, sans-serif; }
+    body { width: 100%; height: 100vh; background-color: rgba(220, 219, 219, 1); overflow: hidden; }
+    
+    .screen { display: none; width: 100%; height: 100%; }
+    .screen.active { display: flex; justify-content: center; align-items: center; }
+
+    /* --- Стили для Экранов Входа и Регистрации --- */
+    .auth-container {
+      background: white; padding: 40px; border-radius: 15px; width: 350px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center;
+    }
+    .auth-container h2 { margin-bottom: 20px; color: #3d3d3d; }
+    .auth-container input {
+      width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc;
+      border-radius: 8px; font-size: 16px; outline: none;
+    }
+    .auth-container input:focus { border-color: #888; }
+    .auth-container button {
+      width: 100%; padding: 12px; background-color: #4a90e2; color: white;
+      border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 10px;
+    }
+    .auth-container button:hover { background-color: #357abd; }
+    .auth-container .link { margin-top: 15px; font-size: 14px; color: #666; }
+    .auth-container .link a { color: #4a90e2; text-decoration: none; font-weight: bold; }
+    .error-msg { color: red; font-size: 14px; margin-bottom: 10px; min-height: 20px; }
+
+    /* --- Стили для Главного экрана (Менеджер) --- */
+    #screen-manager { display: none; }
+    #screen-manager.active { display: block; }
+
+    .Pixso-frame-2_14 {
+      width: 100%; height: 100vh; min-width: 1000px; overflow: hidden;
+      background-color: rgba(220, 219, 219, 1); position: relative;
+    }
+    .sidebar {
+      position: absolute; top: 58px; left: 33px; width: 293px; height: calc(100% - 70px);
+      background-color: white; border-radius: 10px 0px 0px 10px;
+    }
+    .top-bar {
+      position: absolute; top: 58px; left: 340px; width: calc(100% - 370px); height: 60px;
+      background-color: white; border-radius: 0px 10px 0px 0px; display: flex; align-items: center; padding: 0 20px;
+    }
+    .main-content {
+      position: absolute; top: 132px; left: 340px; width: calc(100% - 370px); height: calc(100% - 144px);
+      background-color: white; border-radius: 0px 0px 10px 0px; overflow-y: auto;
+    }
+
+    .user-info { display: flex; align-items: center; gap: 15px; }
+    .user-avatar { width: 40px; height: 40px; background: #ccc; border-radius: 50%; }
+    .user-name { font-size: 18px; color: #161212; font-weight: 500; }
+    
+    .btn {
+      padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px;
+    }
+    .btn-primary { background-color: #4a90e2; color: white; }
+    .btn-primary:hover { background-color: #357abd; }
+    .btn-secondary { background-color: rgba(190, 190, 190, 1); color: #3d3d3d; }
+    .btn-danger { background-color: #e74c3c; color: white; padding: 4px 8px; font-size: 12px;}
+
+    .spacer { flex-grow: 1; }
+
+    /* Таблица */
+    .table-header {
+      display: flex; padding: 18px 23px; border-bottom: 2px solid #eee; font-size: 18px; color: #3d3d3d; font-weight: 600;
+      position: sticky; top: 0; background: white; z-index: 10;
+    }
+    .col { flex: 1; }
+    .col-service { flex: 1.5; }
+    .col-actions { flex: 0.5; text-align: right; }
+
+    .table-row {
+      display: flex; padding: 15px 23px; border-bottom: 1px solid #f0f0f0; font-size: 16px; color: #333; align-items: center;
+    }
+    .table-row:hover { background-color: #f9f9f9; }
+    .empty-state { text-align: center; padding: 50px; color: #999; font-size: 18px; }
+
+    /* Модальное окно */
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white; padding: 30px; border-radius: 12px; width: 400px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .modal h3 { margin-bottom: 20px; color: #333; }
+    .modal input, .modal textarea {
+      width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd;
+      border-radius: 6px; font-size: 14px; outline: none; font-family: inherit;
+    }
+    .modal textarea { height: 80px; resize: vertical; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <!-- ЭКРАН 1: ВХОД -->
+  <div id="screen-login" class="screen active">
+    <div class="auth-container">
+      <h2>Вход в менеджер</h2>
+      <div class="error-msg" id="login-error"></div>
+      <input type="text" id="login-username" placeholder="Логин">
+      <input type="password" id="login-password" placeholder="Пароль">
+      <button onclick="login()">Войти</button>
+      <div class="link">Нет аккаунта? <a href="#" onclick="showScreen('screen-register')">Зарегистрироваться</a></div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН 2: РЕГИСТРАЦИЯ -->
+  <div id="screen-register" class="screen">
+    <div class="auth-container">
+      <h2>Регистрация</h2>
+      <div class="error-msg" id="reg-error"></div>
+      <input type="text" id="reg-username" placeholder="Придумайте логин">
+      <input type="password" id="reg-password" placeholder="Придумайте пароль">
+      <input type="password" id="reg-password-confirm" placeholder="Повторите пароль">
+      <button onclick="register()">Создать аккаунт</button>
+      <div class="link">Уже есть аккаунт? <a href="#" onclick="showScreen('screen-login')">Войти</a></div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН 3: ГЛАВНЫЙ (МЕНЕДЖЕР ПАРОЛЕЙ) -->
+  <div id="screen-manager" class="screen">
+    <div class="Pixso-frame-2_14">
+      <!-- Боковая панель -->
+      <div class="sidebar"></div>
+      
+      <!-- Верхняя панель -->
+      <div class="top-bar">
+        <div class="user-info">
+          <div class="user-avatar"></div>
+          <span class="user-name" id="current-user-display">Пользователь</span>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-secondary" onclick="logout()">Выйти</button>
+      </div>
+
+      <!-- Основной контент -->
+      <div class="main-content">
+        <div class="table-header">
+          <div class="col col-service">Сервис</div>
+          <div class="col">Логин</div>
+          <div class="col">Пароль</div>
+          <div class="col">Заметка</div>
+          <div class="col col-actions">Действия</div>
+        </div>
+        <div id="passwords-list">
+          <!-- Сюда JS будет добавлять строки -->
+        </div>
+      </div>
+
+      <!-- Кнопка добавления (плавающая) -->
+      <button class="btn btn-primary" style="position: absolute; bottom: 30px; right: 50px; padding: 12px 24px; font-size: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);" onclick="openModal()">
+        + Добавить пароль
+      </button>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <h3>Новая запись</h3>
+      <input type="text" id="input-service" placeholder="Сервис (например, VK, Google)">
+      <input type="text" id="input-login" placeholder="Логин или Email">
+      <input type="text" id="input-password" placeholder="Пароль">
+      <textarea id="input-note" placeholder="Заметка (необязательно)"></textarea>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Отмена</button>
+        <button class="btn btn-primary" onclick="savePassword()">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // ЛОКАЛЬНАЯ БАЗА ДАННЫХ (JSON в localStorage)
+    // ==========================================
+    const DB = {
+      // Получить всех пользователей
+      getUsers: () => JSON.parse(localStorage.getItem('pm_users') || '[]'),
+      // Сохранить массив пользователей
+      saveUsers: (users) => localStorage.setItem('pm_users', JSON.stringify(users)),
+      // Получить текущего залогиненного юзера
+      getCurrentUser: () => localStorage.getItem('pm_currentUser'),
+      setCurrentUser: (username) => localStorage.setItem('pm_currentUser', username),
+      clearCurrentUser: () => localStorage.removeItem('pm_currentUser'),
+      
+      // Получить пароли конкретного юзера
+      getPasswords: (username) => JSON.parse(localStorage.getItem('pm_pass_' + username) || '[]'),
+      // Сохранить пароли конкретного юзера
+      savePasswords: (username, passwords) => localStorage.setItem('pm_pass_' + username, JSON.stringify(passwords))
+    };
+
+    // ==========================================
+    // НАВИГАЦИЯ МЕЖДУ ЭКРАНАМИ
+    // ==========================================
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      
+      // Очистка ошибок при переключении
+      document.getElementById('login-error').innerText = '';
+      document.getElementById('reg-error').innerText = '';
+    }
+
+    // ==========================================
+    // ЛОГИКА РЕГИСТРАЦИИ И ВХОДА
+    // ==========================================
+    function register() {
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const confirm = document.getElementById('reg-password-confirm').value;
+      const errorEl = document.getElementById('reg-error');
+
+      if (!username || !password) {
+        errorEl.innerText = 'Заполните все поля!'; return;
+      }
+      if (password !== confirm) {
+        errorEl.innerText = 'Пароли не совпадают!'; return;
+      }
+
+      let users = DB.getUsers();
+      if (users.find(u => u.username === username)) {
+        errorEl.innerText = 'Такой логин уже занят!'; return;
+      }
+
+      // Добавляем нового юзера в JSON БД
+      users.push({ username, password });
+      DB.saveUsers(users);
+      
+      alert('Регистрация успешна! Теперь войдите в аккаунт.');
+      showScreen('screen-login');
+    }
+
+    function login() {
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      const errorEl = document.getElementById('login-error');
+
+      const users = DB.getUsers();
+      const user = users.find(u => u.username === username && u.password === password);
+
+      if (!user) {
+        errorEl.innerText = 'Неверный логин или пароль!'; return;
+      }
+
+      DB.setCurrentUser(username);
+      loadManager();
+    }
+
+    function logout() {
+      DB.clearCurrentUser();
+      showScreen('screen-login');
+      // Очищаем поля
+      document.getElementById('login-username').value = '';
+      document.getElementById('login-password').value = '';
+    }
+
+    // ==========================================
+    // ЛОГИКА МЕНЕДЖЕРА ПАРОЛЕЙ
+    // ==========================================
+    function loadManager() {
+      const currentUser = DB.getCurrentUser();
+      if (!currentUser) {
+        showScreen('screen-login');
+        return;
+      }
+
+      document.getElementById('current-user-display').innerText = currentUser;
+      showScreen('screen-manager');
+      renderPasswords();
+    }
+
+    function renderPasswords() {
+      const currentUser = DB.getCurrentUser();
+      const passwords = DB.getPasswords(currentUser);
+      const listEl = document.getElementById('passwords-list');
+      
+      listEl.innerHTML = '';
+
+      if (passwords.length === 0) {
+        listEl.innerHTML = '<div class="empty-state">Пока нет сохраненных паролей. Нажмите «+ Добавить пароль»</div>';
+        return;
+      }
+
+      passwords.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'table-row';
+        row.innerHTML = `
+          <div class="col col-service">${item.service}</div>
+          <div class="col">${item.login}</div>
+          <div class="col">${item.password}</div>
+          <div class="col">${item.note || '-'}</div>
+          <div class="col col-actions">
+            <button class="btn btn-danger" onclick="deletePassword(${index})">Удалить</button>
+          </div>
+        `;
+        listEl.appendChild(row);
+      });
+    }
+
+    function openModal() {
+      document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('active');
+      // Очищаем поля
+      document.getElementById('input-service').value = '';
+      document.getElementById('input-login').value = '';
+      document.getElementById('input-password').value = '';
+      document.getElementById('input-note').value = '';
+    }
+
+    function savePassword() {
+      const service = document.getElementById('input-service').value.trim();
+      const login = document.getElementById('input-login').value.trim();
+      const password = document.getElementById('input-password').value.trim();
+      const note = document.getElementById('input-note').value.trim();
+
+      if (!service || !login || !password) {
+        alert('Заполните обязательные поля (Сервис, Логин, Пароль)!');
+        return;
+      }
+
+      const currentUser = DB.getCurrentUser();
+      let passwords = DB.getPasswords(currentUser);
+      
+      // Добавляем новую запись в JSON массив
+      passwords.push({ service, login, password, note });
+      
+      // Сохраняем обновленный JSON обратно в localStorage
+      DB.savePasswords(currentUser, passwords);
+      
+      closeModal();
+      renderPasswords();
+    }
+
+    function deletePassword(index) {
+      if (!confirm('Удалить эту запись?')) return;
+      
+      const currentUser = DB.getCurrentUser();
+      let passwords = DB.getPasswords(currentUser);
+      
+      passwords.splice(index, 1);
+      DB.savePasswords(currentUser, passwords);
+      
+      renderPasswords();
+    }
+
+    // ==========================================
+    // ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
+    // ==========================================
+    window.onload = function() {
+      // Если юзер уже залогинен, сразу открываем менеджер
+      if (DB.getCurrentUser()) {
+        loadManager();
+      } else {
+        showScreen('screen-login');
+      }
+    };
+  </script>
+</body>
+</html>
